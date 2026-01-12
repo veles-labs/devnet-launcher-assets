@@ -148,7 +148,10 @@ def collect_package_files(package_dir, exclude=None):
 
 def host_info(assets_dir):
     uname = platform.uname()
-    cpu_freq = psutil.cpu_freq()
+    try:
+        cpu_freq = psutil.cpu_freq()
+    except RuntimeError:
+        cpu_freq = None
     return {
         "hostname": socket.gethostname(),
         "fqdn": socket.getfqdn(),
