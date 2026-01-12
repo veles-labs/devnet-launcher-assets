@@ -1,0 +1,6 @@
+[submodule "v2.1.1/casper-node"]
+	path = v2.1.1/casper-node
+	url = https://github.com/casper-network/casper-node
+[submodule "v2.1.1/casper-sidecar"]
+	path = v2.1.1/casper-sidecar
+	url = https://github.com/casper-network/casper-sidecar
