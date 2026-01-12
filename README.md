@@ -37,6 +37,7 @@ Outputs:
 - `assets/v2.1.1/bin/casper-node`
 - `assets/v2.1.1/bin/casper-sidecar`
 - `assets/v2.1.1/chainspec.toml`
+- `assets/v2.1.1/node-config.toml`
 - `assets/v2.1.1/sidecar-config.toml`
 - `assets/casper-v2.1.1-<target>.tar.gz`
 - `assets/casper-v2.1.1-<target>.tar.gz.sha256`

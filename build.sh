@@ -43,6 +43,8 @@ for version in "${VERSIONS[@]}"; do
   echo "📦 Staging configs"
   cp "${node_dir}/resources/local/chainspec.toml.in" \
     "${assets_version_dir}/chainspec.toml"
+  cp "${node_dir}/resources/local/config.toml" \
+    "${assets_version_dir}/node-config.toml"
   cp "${sidecar_dir}/resources/example_configs/default_rpc_only_config.toml" \
     "${assets_version_dir}/sidecar-config.toml"
 
