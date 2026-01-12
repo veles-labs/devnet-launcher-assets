@@ -1,0 +1,8 @@
+[project]
+name = "devnet-launcher-assets"
+version = "0.0.0"
+description = "Build tooling for Casper devnet assets."
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "psutil==5.9.8",
+]

@@ -1,10 +1,4 @@
 #!/usr/bin/env python3
-# /// script
-# requires-python = ">=3.11,<3.12"
-# dependencies = [
-#   "psutil==5.9.8",
-# ]
-# ///
 import argparse
 import hashlib
 import json

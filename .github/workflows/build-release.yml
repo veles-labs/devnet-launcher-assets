@@ -34,7 +34,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
-          enable-cache: false
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
 
       - name: Build assets
         run: ./build.sh

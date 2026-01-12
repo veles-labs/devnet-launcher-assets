@@ -30,7 +30,8 @@ git submodule update --init --recursive
 ```
 
 Note: `build.sh` uses `uv` to run `dump_host_info.py` with pinned Python deps.
-Python is pinned via `.python-version`; install uv from https://astral.sh/uv before running the script.
+Python is pinned via `.python-version`, and deps are pinned in `pyproject.toml` + `uv.lock`.
+Install uv from https://astral.sh/uv before running the script.
 
 Outputs:
 
