@@ -13,6 +13,11 @@ else
   exit 1
 fi
 
+if ! command -v uv >/dev/null 2>&1; then
+  echo "Missing uv; install from https://astral.sh/uv" >&2
+  exit 1
+fi
+
 for version in "${VERSIONS[@]}"; do
   echo "🚀 Starting build for ${version}"
   version_dir="${ROOT_DIR}/${version}"
@@ -40,6 +45,16 @@ for version in "${VERSIONS[@]}"; do
     "${assets_version_dir}/chainspec.toml"
   cp "${sidecar_dir}/resources/example_configs/default_rpc_only_config.toml" \
     "${assets_version_dir}/sidecar-config.toml"
+
+  manifest_path="${assets_version_dir}/manifest.json"
+  echo "📝 Writing build manifest: ${manifest_path}"
+  uv run "${ROOT_DIR}/dump_host_info.py" \
+    --assets-dir "${ASSETS_DIR}" \
+    --output "${manifest_path}" \
+    --target-triple "${TARGET_TRIPLE}" \
+    --version "${version}" \
+    --version-dir "${version_dir}" \
+    --package-dir "${assets_version_dir}"
 
   tarball="${ASSETS_DIR}/casper-${version}-${TARGET_TRIPLE}.tar.gz"
   echo "🧳 Creating archive: ${tarball}"

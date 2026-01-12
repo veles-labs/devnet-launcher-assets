@@ -29,6 +29,9 @@ git submodule update --init --recursive
 ./build.sh
 ```
 
+Note: `build.sh` uses `uv` to run `dump_host_info.py` with pinned Python deps.
+Python is pinned via `.python-version`; install uv from https://astral.sh/uv before running the script.
+
 Outputs:
 
 - `assets/v2.1.1/bin/casper-node`
@@ -38,6 +41,7 @@ Outputs:
 - `assets/casper-v2.1.1-<target>.tar.gz`
 - `assets/casper-v2.1.1-<target>.tar.gz.sha256`
 - `assets/casper-v2.1.1-<target>.tar.gz.sha512`
+- `assets/v2.1.1/manifest.json` (included in the tarball)
 
 ## Verify checksums
 
