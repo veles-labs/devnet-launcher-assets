@@ -35,20 +35,20 @@ Outputs:
 - `assets/v2.1.1/bin/casper-sidecar`
 - `assets/v2.1.1/chainspec.toml`
 - `assets/v2.1.1/sidecar-config.toml`
-- `assets/casper-v2.1.1-<os>.tar.gz`
-- `assets/casper-v2.1.1-<os>.tar.gz.sha256`
-- `assets/casper-v2.1.1-<os>.tar.gz.sha512`
+- `assets/casper-v2.1.1-<target>.tar.gz`
+- `assets/casper-v2.1.1-<target>.tar.gz.sha256`
+- `assets/casper-v2.1.1-<target>.tar.gz.sha512`
 
 ## Verify checksums
 
 ```bash
 # Linux
-sha256sum -c assets/casper-v2.1.1-<os>.tar.gz.sha256
-sha512sum -c assets/casper-v2.1.1-<os>.tar.gz.sha512
+sha256sum -c assets/casper-v2.1.1-<target>.tar.gz.sha256
+sha512sum -c assets/casper-v2.1.1-<target>.tar.gz.sha512
 
 # macOS
-shasum -a 256 -c assets/casper-v2.1.1-<os>.tar.gz.sha256
-shasum -a 512 -c assets/casper-v2.1.1-<os>.tar.gz.sha512
+shasum -a 256 -c assets/casper-v2.1.1-<target>.tar.gz.sha256
+shasum -a 512 -c assets/casper-v2.1.1-<target>.tar.gz.sha512
 ```
 
 ## GitHub Releases
