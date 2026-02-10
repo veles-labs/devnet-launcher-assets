@@ -3,7 +3,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ASSETS_DIR="${ROOT_DIR}/assets"
-VERSIONS=("v2.1.1")
+VERSIONS=(
+  "v2.1.1"
+  "v2.1.2"
+)
 
 if command -v rustc >/dev/null 2>&1; then
   TARGET_TRIPLE="$(rustc -vV | awk -F': ' '/^host:/{print $2}')"

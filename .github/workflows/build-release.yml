@@ -47,4 +47,4 @@ jobs:
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: assets/casper-v2.1.1-*.tar.gz*
+          files: assets/casper--*.tar.gz*
