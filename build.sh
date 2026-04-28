@@ -45,8 +45,13 @@ for version in "${VERSIONS[@]}"; do
   popd >/dev/null
 
   echo "📦 Staging configs"
-  cp "${node_dir}/resources/local/chainspec.toml.in" \
-    "${assets_version_dir}/chainspec.toml"
+  version_chainspec="${version_dir}/chainspec.toml"
+  default_chainspec="${node_dir}/resources/local/chainspec.toml.in"
+  if [[ -f "${version_chainspec}" ]]; then
+    cp "${version_chainspec}" "${assets_version_dir}/chainspec.toml"
+  else
+    cp "${default_chainspec}" "${assets_version_dir}/chainspec.toml"
+  fi
   cp "${node_dir}/resources/local/config.toml" \
     "${assets_version_dir}/node-config.toml"
   cp "${sidecar_dir}/resources/example_configs/default_rpc_only_config.toml" \
