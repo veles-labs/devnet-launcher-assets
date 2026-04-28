@@ -6,6 +6,7 @@ ASSETS_DIR="${ROOT_DIR}/assets"
 VERSIONS=(
   "v2.1.1"
   "v2.1.2"
+  "v2.2.0"
 )
 
 if command -v rustc >/dev/null 2>&1; then
