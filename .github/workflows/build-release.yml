@@ -4,17 +4,48 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Casper node tag to build (leave empty for all versions)"
+        required: false
+        type: string
 
 permissions:
   contents: write
 
 jobs:
+  versions:
+    name: Select versions
+    runs-on: ubuntu-22.04
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select versions
+        id: versions
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          versions="$(./build.sh --list-versions | jq -Rsc 'split("\n") | map(select(length > 0))')"
+          if [[ -n "$REQUESTED_VERSION" ]]; then
+            versions="$(jq -ce --arg version "$REQUESTED_VERSION" \
+              'if index($version) != null then [$version] else error("Unsupported version: \($version)") end' \
+              <<< "$versions")"
+          fi
+          echo "versions=$versions" >> "$GITHUB_OUTPUT"
+
   build:
-    name: Build (${{ matrix.os }})
+    name: Build ${{ matrix.version }} (${{ matrix.os }})
+    needs: versions
     runs-on: ${{ matrix.os }}
+    env:
+      CASPER_VERSION: ${{ matrix.version }}
     strategy:
       fail-fast: false
       matrix:
+        version: ${{ fromJSON(needs.versions.outputs.versions) }}
         os:
           - ubuntu-22.04
           - ubuntu-22.04-arm
@@ -24,8 +55,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Checkout version sources
+        run: |
+          git submodule update --init --recursive --depth 1 -- \
+            "$CASPER_VERSION/casper-node" "$CASPER_VERSION/casper-sidecar"
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -42,9 +76,19 @@ jobs:
           cache-dependency-glob: "**/uv.lock"
 
       - name: Build assets
-        run: ./build.sh
+        run: ./build.sh "$CASPER_VERSION"
+
+      - name: Upload workflow artifacts
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: casper-${{ matrix.version }}-${{ matrix.os }}
+          path: assets/casper-${{ matrix.version }}-*.tar.gz*
+          if-no-files-found: error
 
       - name: Upload release assets
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: assets/casper-*.tar.gz*
+          files: assets/casper-${{ matrix.version }}-*.tar.gz*
+          fail_on_unmatched_files: true

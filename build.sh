@@ -7,7 +7,32 @@ VERSIONS=(
   "v2.1.1"
   "v2.1.2"
   "v2.2.0"
+  "v2.2.1"
+  "v2.2.2"
 )
+
+if [[ $# -eq 1 && "$1" == "--list-versions" ]]; then
+  printf '%s\n' "${VERSIONS[@]}"
+  exit 0
+fi
+
+if [[ $# -gt 0 ]]; then
+  for requested_version in "$@"; do
+    supported=false
+    for version in "${VERSIONS[@]}"; do
+      if [[ "${requested_version}" == "${version}" ]]; then
+        supported=true
+        break
+      fi
+    done
+    if [[ "${supported}" != true ]]; then
+      echo "Unsupported version: ${requested_version}" >&2
+      echo "Usage: $0 [--list-versions | VERSION ...]" >&2
+      exit 1
+    fi
+  done
+  VERSIONS=("$@")
+fi
 
 if command -v rustc >/dev/null 2>&1; then
   TARGET_TRIPLE="$(rustc -vV | awk -F': ' '/^host:/{print $2}')"
@@ -29,6 +54,29 @@ for version in "${VERSIONS[@]}"; do
   sidecar_dir="${version_dir}/casper-sidecar"
   assets_version_dir="${ASSETS_DIR}/${version}"
 
+  version_chainspec="${version_dir}/chainspec.toml"
+  if [[ ! -f "${version_chainspec}" ]]; then
+    version_chainspec="${node_dir}/resources/local/chainspec.toml.in"
+  fi
+
+  # Upstream local templates can retain an older protocol version. Check before
+  # spending time and disk space on compilation.
+  uv run --project "${ROOT_DIR}" python - "${version}" "${version_chainspec}" "${node_dir}/node/Cargo.toml" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+
+version, chainspec_path, cargo_path = sys.argv[1:]
+expected = version.removeprefix("v")
+for path, section, label in (
+    (chainspec_path, "protocol", "chainspec"),
+    (cargo_path, "package", "casper-node"),
+):
+    actual = tomllib.loads(Path(path).read_text())[section]["version"]
+    if actual != expected:
+        sys.exit(f"{label} version {actual} does not match {version}: {path}")
+PY
+
   mkdir -p "${assets_version_dir}/bin"
   mkdir -p "${assets_version_dir}"
 
@@ -45,13 +93,7 @@ for version in "${VERSIONS[@]}"; do
   popd >/dev/null
 
   echo "📦 Staging configs"
-  version_chainspec="${version_dir}/chainspec.toml"
-  default_chainspec="${node_dir}/resources/local/chainspec.toml.in"
-  if [[ -f "${version_chainspec}" ]]; then
-    cp "${version_chainspec}" "${assets_version_dir}/chainspec.toml"
-  else
-    cp "${default_chainspec}" "${assets_version_dir}/chainspec.toml"
-  fi
+  cp "${version_chainspec}" "${assets_version_dir}/chainspec.toml"
   cp "${node_dir}/resources/local/config.toml" \
     "${assets_version_dir}/node-config.toml"
   cp "${sidecar_dir}/resources/example_configs/default_rpc_only_config.toml" \
