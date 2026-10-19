@@ -77,12 +77,15 @@ for path, section, label in (
         sys.exit(f"{label} version {actual} does not match {version}: {path}")
 PY
 
+  bash "${ROOT_DIR}/scripts/apply-node-patches.sh" "${node_dir}" "${version_dir}/patches"
+
   mkdir -p "${assets_version_dir}/bin"
   mkdir -p "${assets_version_dir}"
 
   pushd "${node_dir}" >/dev/null
   echo "🔨 Building casper-node"
-  cargo build --release --bin casper-node
+  # Enable the VM1 casper_print host function for devnet contract debugging.
+  cargo build --release --bin casper-node --features casper-execution-engine/test-support
   cp "target/release/casper-node" "${assets_version_dir}/bin/"
   popd >/dev/null
 
@@ -98,6 +101,9 @@ PY
     "${assets_version_dir}/node-config.toml"
   cp "${sidecar_dir}/resources/example_configs/default_rpc_only_config.toml" \
     "${assets_version_dir}/sidecar-config.toml"
+  # Include the exact source patches in the archive and manifest's file hashes.
+  mkdir -p "${assets_version_dir}/patches"
+  cp "${version_dir}/patches/"*.patch "${assets_version_dir}/patches/"
 
   manifest_path="${assets_version_dir}/manifest.json"
   echo "📝 Writing build manifest: ${manifest_path}"

@@ -1,0 +1,166 @@
+diff --git a/execution_engine/src/runtime/mod.rs b/execution_engine/src/runtime/mod.rs
+--- a/execution_engine/src/runtime/mod.rs
++++ b/execution_engine/src/runtime/mod.rs
+@@ -6,6 +6,8 @@
+ mod handle_payment_internal;
+ mod host_function_flag;
+ mod mint_internal;
++#[cfg(feature = "test-support")]
++mod print_output;
+ pub mod stack;
+ mod utils;
+ pub(crate) mod wasm_prep;
+@@ -78,6 +80,16 @@
+     DEFAULT_MAX_TABLE_SIZE,
+ };
+ 
++/// Initializes the process-wide test-support `casper_print` output before worker threads start.
++///
++/// `CASPER_DEVNET_EXPERIMENTAL_PRINT_FD` selects an inherited Unix descriptor; unset means stdout.
++/// Invalid configuration is reported before the node starts. Without `test-support`, this is a no-op.
++pub fn initialize_print_output() -> std::io::Result<()> {
++    #[cfg(feature = "test-support")]
++    print_output::initialize()?;
++    Ok(())
++}
++
+ #[derive(Debug)]
+ enum CallContractIdentifier {
+     Contract {
+@@ -3974,7 +3986,11 @@
+     #[cfg(feature = "test-support")]
+     fn print(&mut self, text_ptr: u32, text_size: u32) -> Result<(), Trap> {
+         let text = self.string_from_mem(text_ptr, text_size)?;
+-        println!("{}", text); // this println! is intentional
++        if let Err(error) = print_output::write_line(&text) {
++            // Debug output must not change contract execution or abort the node.
++            static WARN_ONCE: std::sync::Once = std::sync::Once::new();
++            WARN_ONCE.call_once(|| warn!(%error, "failed to write casper_print output"));
++        }
+         Ok(())
+     }
+ 
+diff --git a/node/src/app/main.rs b/node/src/app/main.rs
+--- a/node/src/app/main.rs
++++ b/node/src/app/main.rs
+@@ -36,6 +36,8 @@
+ 
+ /// Main function.
+ fn main() -> anyhow::Result<()> {
++    casper_execution_engine::runtime::initialize_print_output()?;
++
+     // The exit code is determined in a block to ensure that all acquired resources are dropped
+     // before exiting with the given exit code.
+     let exit_code = {
+diff --git a/execution_engine/src/runtime/print_output.rs b/execution_engine/src/runtime/print_output.rs
+new file mode 100644
+--- /dev/null
++++ b/execution_engine/src/runtime/print_output.rs
+@@ -0,0 +1,107 @@
++//! Process-wide output for the devnet-only `casper_print` host function.
++
++use std::{
++    env,
++    ffi::OsString,
++    io::{self, Write},
++    sync::{Mutex, OnceLock},
++};
++
++#[cfg(unix)]
++use std::{
++    fs::File,
++    os::fd::{FromRawFd, RawFd},
++};
++
++const ENV_VAR: &str = "CASPER_DEVNET_EXPERIMENTAL_PRINT_FD";
++static OUTPUT: OnceLock<Result<Mutex<Output>, io::Error>> = OnceLock::new();
++
++enum Output {
++    Stdout,
++    #[cfg(unix)]
++    Descriptor(File),
++}
++
++impl Output {
++    fn write_line(&mut self, text: &str) -> io::Result<()> {
++        match self {
++            Output::Stdout => writeln!(io::stdout().lock(), "{text}"),
++            #[cfg(unix)]
++            Output::Descriptor(file) => {
++                // File is unbuffered; write_all handles short writes and EINTR.
++                file.write_all(text.as_bytes())?;
++                file.write_all(b"\n")
++            }
++        }
++    }
++}
++
++fn configured_output(value: Option<OsString>) -> io::Result<Output> {
++    let Some(value) = value else {
++        return Ok(Output::Stdout);
++    };
++    #[cfg(unix)]
++    {
++        let fd = value
++            .to_str()
++            .and_then(|value| value.parse::<RawFd>().ok())
++            .filter(|fd| *fd >= 0)
++            .ok_or_else(|| {
++                io::Error::new(
++                    io::ErrorKind::InvalidInput,
++                    format!("{ENV_VAR} must be a non-negative file descriptor number"),
++                )
++            })?;
++        duplicate(fd).map(Output::Descriptor).map_err(|error| {
++            io::Error::new(
++                error.kind(),
++                format!("cannot duplicate {ENV_VAR}={fd}: {error}"),
++            )
++        })
++    }
++    #[cfg(not(unix))]
++    {
++        let _ = value;
++        Err(io::Error::new(
++            io::ErrorKind::Unsupported,
++            "CASPER_DEVNET_EXPERIMENTAL_PRINT_FD requires Unix",
++        ))
++    }
++}
++
++#[cfg(unix)]
++fn duplicate(fd: RawFd) -> io::Result<File> {
++    extern "C" {
++        fn dup(fd: RawFd) -> RawFd;
++    }
++    // SAFETY: dup accepts any integer, returning EBADF for an invalid descriptor.
++    // Do not create a BorrowedFd from an unvalidated environment variable.
++    let duplicated = unsafe { dup(fd) };
++    if duplicated < 0 {
++        return Err(io::Error::last_os_error());
++    }
++    // SAFETY: a successful dup returns a new descriptor owned solely by us.
++    let file = unsafe { File::from_raw_fd(duplicated) };
++    // Use std's close-on-exec clone. The temporary dup is closed on return;
++    // the launcher-provided descriptor is never closed or taken into ownership.
++    file.try_clone()
++}
++
++fn output() -> io::Result<&'static Mutex<Output>> {
++    OUTPUT
++        .get_or_init(|| configured_output(env::var_os(ENV_VAR)).map(Mutex::new))
++        .as_ref()
++        .map_err(|error| io::Error::new(error.kind(), error.to_string()))
++}
++
++pub(crate) fn initialize() -> io::Result<()> {
++    output().map(|_| ())
++}
++
++pub(crate) fn write_line(text: &str) -> io::Result<()> {
++    // Serialize complete calls from execution threads sharing this process.
++    output()?
++        .lock()
++        .unwrap_or_else(|poisoned| poisoned.into_inner())
++        .write_line(text)
++}
