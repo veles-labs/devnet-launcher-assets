@@ -76,8 +76,8 @@ jobs:
           cache-dependency-glob: "**/uv.lock"
 
       - name: Check node patches and print output
-        # Compile only the standalone std-only FD writer during these checks.
-        # All temporary test binaries are removed, including on failure.
+        # Compile only the focused capability/FD writer harness during these checks.
+        # All temporary test binaries and Cargo targets are removed, including on failure.
         run: python scripts/check-node-patches.py "$CASPER_VERSION"
 
       - name: Build patched assets

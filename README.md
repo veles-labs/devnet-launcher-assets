@@ -91,6 +91,23 @@ number **in the child node process**, referring to a writable, blocking pipe,
 stream socket, or file inherited from `casper-devnet`. The environment variable
 alone does not transfer a descriptor. The interface is experimental.
 
+The patch adds a machine-readable capability query:
+
+```bash
+./assets/v2.2.2/bin/casper-node --devnet-capabilities
+# {"print_fd":true}
+```
+
+This standalone flag exits successfully after printing one JSON object to
+stdout, before node initialization. It requires neither a validator config nor
+an inherited FD, and works even if the print-FD variable contains an invalid
+value. `print_fd` is true only on Unix builds with `test-support`; otherwise the
+patched binary reports false. Additional capability fields may be added later.
+Unpatched upstream nodes reject the flag. A launcher should enable FD capture
+only after a successful response with a JSON boolean `print_fd: true`; unknown
+flags, malformed responses, missing capabilities, and failed queries must leave
+normal node startup available. Rebuild older patched assets to add this query.
+
 At startup, before worker threads start, the node reads the variable once and
 duplicates the descriptor for the execution engine. It leaves the original
 descriptor open and uses its own close-on-exec copy. An unset variable preserves
@@ -107,18 +124,22 @@ writes can lose output and are not redirected to stdout.
 
 For `casper-devnet` integration:
 
-1. Create a separate pipe or stream socket for each node. Keep the reading end in
+1. Query `--devnet-capabilities` without the print-FD variable set. If print FD
+   support is not advertised, start the node without a pipe or the variable and
+   keep its normal stdout/stderr destinations. Query the actual binary again
+   after rebuilds or upgrades.
+2. For supported nodes, create a separate pipe or stream socket. Keep the reading end in
    `casper-devnet` and arrange for the writing end to survive the node's `exec`
    (for example, `dup2` it to an available child FD and clear `FD_CLOEXEC`). Choose
    an FD that does not overlap other inherited descriptors, such as consensus key
    pipes. Set `CASPER_DEVNET_EXPERIMENTAL_PRINT_FD` on that node's command to the
    resulting child FD number. Normal stdout/stderr can retain their existing log
    destinations.
-2. After spawning the node, close the parent's copy of the writing end. Drain the
+3. After spawning the node, close the parent's copy of the writing end. Drain the
    reader continuously: a full blocking pipe will stall the executing print call.
    Identify the node by its dedicated pipe; calls from separate node processes
    sharing a pipe are not serialized together.
-3. Repeat the descriptor setup for node restarts and upgrades. Remove the variable
+4. Repeat the descriptor setup for node restarts and upgrades. Remove the variable
    from commands that do not inherit the descriptor, such as binary version probes.
 
 For a shell example using an already built node and an existing validator config:
@@ -145,11 +166,14 @@ python3 scripts/check-node-patches.py v2.2.2   # one version
 ```
 
 These checks apply patches to temporary source fixtures and compile only the
-small standard-library-only descriptor writer. They exercise stdout fallback,
-inherited pipes and files, descriptor ownership, concurrent and large writes,
-invalid configuration, and write errors. All temporary sources and executables
-are removed on success or failure; no Cargo `target` directory is created. CI runs
-these checks on every version/platform pair before the full node build.
+small descriptor writer and the actual capability query branch, using the node's
+existing `serde_json` dependency. They exercise feature-enabled and
+feature-disabled capability responses, stdout fallback, inherited pipes and files,
+descriptor ownership, concurrent and large writes, invalid configuration, and
+write errors. All temporary sources, executables, and the shared temporary Cargo
+target are removed on success or failure; no repository `target` directory is
+created. CI runs these checks on every version/platform pair before the full
+node build.
 
 ## Verify checksums
 

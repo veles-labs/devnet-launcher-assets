@@ -10,10 +10,15 @@ diff --git a/execution_engine/src/runtime/mod.rs b/execution_engine/src/runtime/
  pub mod stack;
  mod utils;
  pub(crate) mod wasm_prep;
-@@ -74,6 +76,16 @@
+@@ -74,6 +76,21 @@
      DEFAULT_BR_TABLE_MAX_SIZE, DEFAULT_MAX_GLOBALS, DEFAULT_MAX_PARAMETER_COUNT,
      DEFAULT_MAX_TABLE_SIZE,
  };
++
++/// Whether this build supports the experimental inherited contract print descriptor.
++pub const fn supports_print_fd() -> bool {
++    cfg!(all(unix, feature = "test-support"))
++}
 +
 +/// Initializes the process-wide test-support `casper_print` output before worker threads start.
 +///
@@ -27,7 +32,7 @@ diff --git a/execution_engine/src/runtime/mod.rs b/execution_engine/src/runtime/
  
  #[derive(Debug)]
  enum CallContractIdentifier {
-@@ -3944,7 +3956,11 @@
+@@ -3944,7 +3961,11 @@
      #[cfg(feature = "test-support")]
      fn print(&mut self, text_ptr: u32, text_size: u32) -> Result<(), Trap> {
          let text = self.string_from_mem(text_ptr, text_size)?;
@@ -43,10 +48,23 @@ diff --git a/execution_engine/src/runtime/mod.rs b/execution_engine/src/runtime/
 diff --git a/node/src/app/main.rs b/node/src/app/main.rs
 --- a/node/src/app/main.rs
 +++ b/node/src/app/main.rs
-@@ -36,6 +36,8 @@
+@@ -36,6 +36,21 @@
  
  /// Main function.
  fn main() -> anyhow::Result<()> {
++    if std::env::args_os()
++        .skip(1)
++        .eq([std::ffi::OsString::from("--devnet-capabilities")])
++    {
++        println!(
++            "{}",
++            serde_json::json!({
++                "print_fd": casper_execution_engine::runtime::supports_print_fd()
++            })
++        );
++        return Ok(());
++    }
++
 +    casper_execution_engine::runtime::initialize_print_output()?;
 +
      // The exit code is determined in a block to ensure that all acquired resources are dropped
